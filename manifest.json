@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "Pocket Pomo",
+  "version": "1.0.0",
+  "description": "A sleek Pomodoro timer for focused work sessions.",
+  "permissions": ["storage", "alarms", "notifications"],
+  "background": {
+    "service_worker": "scripts/background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "Pocket Pomo",
+    "default_popup": "popup.html"
+  }
+}
