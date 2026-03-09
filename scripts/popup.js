@@ -16,6 +16,7 @@ const pomodoroCount = document.getElementById('pomodoroCount');
 const focusMinutesTotal = document.getElementById('focusMinutesTotal');
 const breakCount = document.getElementById('breakCount');
 const breakMinutesTotal = document.getElementById('breakMinutesTotal');
+const clickSound = new Audio(chrome.runtime.getURL('assets/click.mp3'));
 let latestState = null;
 let refreshHandle = null;
 const MODE_LABELS = {
@@ -43,6 +44,15 @@ function formatTime(milliseconds) {
         .padStart(2, '0');
     const seconds = (safeSeconds % 60).toString().padStart(2, '0');
     return `${minutes}:${seconds}`;
+}
+function playSound(sound) {
+    try {
+        sound.currentTime = 0;
+        void sound.play();
+    }
+    catch (error) {
+        console.debug('Unable to play sound:', error);
+    }
 }
 function getLiveRemaining(state) {
     if (!state.isRunning || state.phaseEndMs === null) {
@@ -111,6 +121,7 @@ async function updateDurationsFromInputs() {
     render(latestState);
 }
 async function handleStartPause() {
+    playSound(clickSound);
     if (!latestState) {
         await refreshState();
     }
@@ -129,12 +140,14 @@ async function initialize() {
         void handleStartPause();
     });
     resetButton.addEventListener('click', () => {
+        playSound(clickSound);
         void sendMessage({ action: 'reset' }).then((state) => {
             latestState = state;
             render(state);
         });
     });
     skipButton.addEventListener('click', () => {
+        playSound(clickSound);
         void sendMessage({ action: 'skip' }).then((state) => {
             latestState = state;
             render(state);

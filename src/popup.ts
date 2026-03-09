@@ -58,6 +58,8 @@ const focusMinutesTotal = document.getElementById('focusMinutesTotal') as HTMLPa
 const breakCount = document.getElementById('breakCount') as HTMLParagraphElement;
 const breakMinutesTotal = document.getElementById('breakMinutesTotal') as HTMLParagraphElement;
 
+const clickSound = new Audio(chrome.runtime.getURL('assets/click.mp3'));
+
 let latestState: TimerState | null = null;
 let refreshHandle: number | null = null;
 
@@ -90,6 +92,15 @@ function formatTime(milliseconds: number): string {
 		.padStart(2, '0');
 	const seconds = (safeSeconds % 60).toString().padStart(2, '0');
 	return `${minutes}:${seconds}`;
+}
+
+function playSound(sound: HTMLAudioElement): void {
+	try {
+		sound.currentTime = 0;
+		void sound.play();
+	} catch (error) {
+		console.debug('Unable to play sound:', error);
+	}
 }
 
 function getLiveRemaining(state: TimerState): number {
@@ -170,6 +181,8 @@ async function updateDurationsFromInputs(): Promise<void> {
 }
 
 async function handleStartPause(): Promise<void> {
+	playSound(clickSound);
+
 	if (!latestState) {
 		await refreshState();
 	}
@@ -189,6 +202,7 @@ async function initialize(): Promise<void> {
 	});
 
 	resetButton.addEventListener('click', () => {
+		playSound(clickSound);
 		void sendMessage({ action: 'reset' }).then((state) => {
 			latestState = state;
 			render(state);
@@ -196,6 +210,7 @@ async function initialize(): Promise<void> {
 	});
 
 	skipButton.addEventListener('click', () => {
+		playSound(clickSound);
 		void sendMessage({ action: 'skip' }).then((state) => {
 			latestState = state;
 			render(state);

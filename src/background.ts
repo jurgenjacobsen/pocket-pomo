@@ -44,8 +44,10 @@ const BADGE_TICK_ALARM_NAME = 'pocketPomoBadgeTick';
 const BADGE_TICK_PERIOD_MINUTES = 1;
 const BADGE_TICK_INTERVAL_MS = 1_000;
 const NOTIFICATION_ICON_PATH = 'assets/icon.png';
+const OFFSCREEN_DOCUMENT_PATH = 'offscreen.html';
 
 let badgeTickIntervalId: ReturnType<typeof setInterval> | null = null;
+let offscreenCreationPromise: Promise<void> | null = null;
 
 const DEFAULTS = {
   focusMinutes: 25,
@@ -194,6 +196,50 @@ async function showCompletionNotification(completedMode: PomodoroMode, nextMode:
   } catch (error) {
     console.log('Failed to show completion notification:', error);
     // Notifications can fail silently on invalid icon/OS restrictions; timer logic should still continue.
+  }
+}
+
+async function ensureOffscreenDocument(): Promise<void> {
+  if (!chrome.offscreen) {
+    return;
+  }
+
+  if (offscreenCreationPromise) {
+    await offscreenCreationPromise;
+    return;
+  }
+
+  offscreenCreationPromise = (async () => {
+    try {
+      await chrome.offscreen.createDocument({
+        url: OFFSCREEN_DOCUMENT_PATH,
+        reasons: [chrome.offscreen.Reason.AUDIO_PLAYBACK],
+        justification: 'Play timer completion sounds while the popup is closed.',
+      });
+    } catch (error) {
+      const message = (error instanceof Error ? error.message : String(error)).toLowerCase();
+      if (message.includes('single offscreen document')) {
+        return;
+      }
+      throw error;
+    } finally {
+      offscreenCreationPromise = null;
+    }
+  })();
+
+  await offscreenCreationPromise;
+}
+
+async function playCompletionChime(): Promise<void> {
+  if (!chrome.offscreen) {
+    return;
+  }
+
+  try {
+    await ensureOffscreenDocument();
+    await chrome.runtime.sendMessage({ action: 'playCompletionChime' });
+  } catch (error) {
+    console.log('Failed to play completion chime:', error);
   }
 }
 
@@ -394,6 +440,7 @@ async function persistAndPublish(state: TimerState): Promise<TimerState> {
   await updateBadge(normalizedState);
 
   if (completionEvents.length > 0) {
+    await playCompletionChime();
     for (const completedMode of completionEvents) {
       const nextMode = normalizedState.mode;
       await showCompletionNotification(completedMode, nextMode);
@@ -503,6 +550,22 @@ async function initializeState(): Promise<void> {
   await getCurrentState();
 }
 
+function isIncomingMessage(message: unknown): message is IncomingMessage {
+  if (!message || typeof message !== 'object') {
+    return false;
+  }
+
+  const action = (message as { action?: string }).action;
+  return (
+    action === 'getState' ||
+    action === 'start' ||
+    action === 'pause' ||
+    action === 'reset' ||
+    action === 'skip' ||
+    action === 'setDurations'
+  );
+}
+
 chrome.runtime.onInstalled.addListener(() => {
   void initializeState();
 });
@@ -521,10 +584,14 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 
 chrome.runtime.onMessage.addListener(
   (
-    message: IncomingMessage,
+    message: unknown,
     _sender: chrome.runtime.MessageSender,
     sendResponse: (response: TimerState) => void,
   ): boolean => {
+    if (!isIncomingMessage(message)) {
+      return false;
+    }
+
     const execute = async (): Promise<TimerState> => {
       switch (message.action) {
         case 'getState':
