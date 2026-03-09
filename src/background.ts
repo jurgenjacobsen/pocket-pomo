@@ -53,7 +53,7 @@ const DEFAULTS = {
   focusMinutes: 25,
   shortBreakMinutes: 5,
   longBreakMinutes: 15,
-  cyclesBeforeLongBreak: 4,
+  cyclesBeforeLongBreak: 3,
   focusXpPerMinute: 2,
   breakXpPerMinute: 1,
   pomodoroBonusXp: 20,
@@ -299,7 +299,8 @@ async function loadState(): Promise<TimerState> {
     focusMinutes: clamp(toFiniteNumber(saved.focusMinutes, fallback.focusMinutes), 1, 120),
     shortBreakMinutes: clamp(toFiniteNumber(saved.shortBreakMinutes, fallback.shortBreakMinutes), 1, 60),
     longBreakMinutes: clamp(toFiniteNumber(saved.longBreakMinutes, fallback.longBreakMinutes), 1, 90),
-    cyclesBeforeLongBreak: clamp(toFiniteNumber(saved.cyclesBeforeLongBreak, fallback.cyclesBeforeLongBreak), 2, 8),
+    // Keep cadence fixed to the product rule: focus, short, focus, short, focus, long.
+    cyclesBeforeLongBreak: DEFAULTS.cyclesBeforeLongBreak,
     totalPomodorosCompleted: Math.max(0, toFiniteNumber(saved.totalPomodorosCompleted, fallback.totalPomodorosCompleted)),
     totalFocusMinutesCompleted: Math.max(0, toFiniteNumber(saved.totalFocusMinutesCompleted, fallback.totalFocusMinutesCompleted)),
     totalBreakMinutesCompleted: Math.max(0, toFiniteNumber(saved.totalBreakMinutesCompleted, fallback.totalBreakMinutesCompleted)),
@@ -509,8 +510,15 @@ async function resetTimer(): Promise<TimerState> {
 
 async function skipTimer(): Promise<TimerState> {
   const state = await getCurrentState();
-  const nextMode: PomodoroMode = state.mode === 'focus' ? 'shortBreak' : 'focus';
-  const nextState = startMode(state, nextMode, Date.now(), false);
+  const sequencingState =
+    state.mode === 'focus'
+      ? {
+          ...state,
+          completedFocusSessions: state.completedFocusSessions + 1,
+        }
+      : state;
+  const nextMode = getNextMode(sequencingState);
+  const nextState = startMode(sequencingState, nextMode, Date.now(), false);
   return persistAndPublish(nextState);
 }
 
