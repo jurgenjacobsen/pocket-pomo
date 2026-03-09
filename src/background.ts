@@ -509,8 +509,9 @@ async function resetTimer(): Promise<TimerState> {
 
 async function skipTimer(): Promise<TimerState> {
   const state = await getCurrentState();
-  const transition = advancePhase(state, Date.now(), false, false);
-  return persistAndPublish(transition.nextState);
+  const nextMode: PomodoroMode = state.mode === 'focus' ? 'shortBreak' : 'focus';
+  const nextState = startMode(state, nextMode, Date.now(), false);
+  return persistAndPublish(nextState);
 }
 
 async function setDurations(payload: {
