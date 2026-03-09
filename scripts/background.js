@@ -254,7 +254,12 @@ async function updateBadge(state) {
     }
     const remainingMs = getLiveRemainingMs(state, Date.now());
     const remainingSec = Math.ceil(remainingMs / 1000);
-    const badgeText = remainingSec >= 60 ? `${Math.ceil(remainingSec / 60)}m` : `${Math.max(0, remainingSec)}s`;
+    const safeRemainingSec = Math.max(0, remainingSec);
+    const minutes = Math.floor(safeRemainingSec / 60)
+        .toString()
+        .padStart(2, '0');
+    const seconds = (safeRemainingSec % 60).toString().padStart(2, '0');
+    const badgeText = `${minutes}:${seconds}`;
     await chrome.action.setBadgeText({ text: badgeText });
     const color = state.mode === 'focus' ? '#d9583b' : state.mode === 'shortBreak' ? '#1f8c7f' : '#195ca8';
     await chrome.action.setBadgeBackgroundColor({ color });
