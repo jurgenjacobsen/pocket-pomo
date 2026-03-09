@@ -42,7 +42,10 @@ const STORAGE_KEY = 'pocketPomoState';
 const ALARM_NAME = 'pocketPomoPhaseEnd';
 const BADGE_TICK_ALARM_NAME = 'pocketPomoBadgeTick';
 const BADGE_TICK_PERIOD_MINUTES = 1;
-const NOTIFICATION_ICON_PATH = 'assets/notify-icon-128.png';
+const BADGE_TICK_INTERVAL_MS = 1_000;
+const NOTIFICATION_ICON_PATH = 'assets/icon.png';
+
+let badgeTickIntervalId: ReturnType<typeof setInterval> | null = null;
 
 const DEFAULTS = {
   focusMinutes: 25,
@@ -188,7 +191,8 @@ async function showCompletionNotification(completedMode: PomodoroMode, nextMode:
       iconUrl: chrome.runtime.getURL(NOTIFICATION_ICON_PATH),
       priority: 2,
     });
-  } catch {
+  } catch (error) {
+    console.log('Failed to show completion notification:', error);
     // Notifications can fail silently on invalid icon/OS restrictions; timer logic should still continue.
   }
 }
@@ -333,6 +337,11 @@ function normalizeState(state: TimerState, now: number): { normalizedState: Time
 }
 
 async function updateBadge(state: TimerState): Promise<void> {
+  if (!state.isRunning) {
+    await chrome.action.setBadgeText({ text: '' });
+    return;
+  }
+
   const remainingMs = getLiveRemainingMs(state, Date.now());
   const remainingSec = Math.ceil(remainingMs / 1000);
   const badgeText = remainingSec >= 60 ? `${Math.ceil(remainingSec / 60)}m` : `${Math.max(0, remainingSec)}s`;
@@ -341,6 +350,20 @@ async function updateBadge(state: TimerState): Promise<void> {
 
   const color = state.mode === 'focus' ? '#d9583b' : state.mode === 'shortBreak' ? '#1f8c7f' : '#195ca8';
   await chrome.action.setBadgeBackgroundColor({ color });
+}
+
+function startBadgeTick(state: TimerState): void {
+  stopBadgeTick();
+  badgeTickIntervalId = setInterval(() => {
+    void updateBadge(state);
+  }, BADGE_TICK_INTERVAL_MS);
+}
+
+function stopBadgeTick(): void {
+  if (badgeTickIntervalId !== null) {
+    clearInterval(badgeTickIntervalId);
+    badgeTickIntervalId = null;
+  }
 }
 
 async function syncAlarm(state: TimerState): Promise<void> {
@@ -353,6 +376,9 @@ async function syncAlarm(state: TimerState): Promise<void> {
       delayInMinutes: BADGE_TICK_PERIOD_MINUTES,
       periodInMinutes: BADGE_TICK_PERIOD_MINUTES,
     });
+    startBadgeTick(state);
+  } else {
+    stopBadgeTick();
   }
 }
 

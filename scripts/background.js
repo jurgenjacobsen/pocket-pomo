@@ -3,7 +3,9 @@ const STORAGE_KEY = 'pocketPomoState';
 const ALARM_NAME = 'pocketPomoPhaseEnd';
 const BADGE_TICK_ALARM_NAME = 'pocketPomoBadgeTick';
 const BADGE_TICK_PERIOD_MINUTES = 1;
-const NOTIFICATION_ICON_PATH = 'assets/notify-icon-128.png';
+const BADGE_TICK_INTERVAL_MS = 1000;
+const NOTIFICATION_ICON_PATH = 'assets/icon.png';
+let badgeTickIntervalId = null;
 const DEFAULTS = {
     focusMinutes: 25,
     shortBreakMinutes: 5,
@@ -121,7 +123,8 @@ async function showCompletionNotification(completedMode, nextMode) {
             priority: 2,
         });
     }
-    catch {
+    catch (error) {
+        console.log('Failed to show completion notification:', error);
         // Notifications can fail silently on invalid icon/OS restrictions; timer logic should still continue.
     }
 }
@@ -245,12 +248,28 @@ function normalizeState(state, now) {
     };
 }
 async function updateBadge(state) {
+    if (!state.isRunning) {
+        await chrome.action.setBadgeText({ text: '' });
+        return;
+    }
     const remainingMs = getLiveRemainingMs(state, Date.now());
     const remainingSec = Math.ceil(remainingMs / 1000);
     const badgeText = remainingSec >= 60 ? `${Math.ceil(remainingSec / 60)}m` : `${Math.max(0, remainingSec)}s`;
     await chrome.action.setBadgeText({ text: badgeText });
     const color = state.mode === 'focus' ? '#d9583b' : state.mode === 'shortBreak' ? '#1f8c7f' : '#195ca8';
     await chrome.action.setBadgeBackgroundColor({ color });
+}
+function startBadgeTick(state) {
+    stopBadgeTick();
+    badgeTickIntervalId = setInterval(() => {
+        void updateBadge(state);
+    }, BADGE_TICK_INTERVAL_MS);
+}
+function stopBadgeTick() {
+    if (badgeTickIntervalId !== null) {
+        clearInterval(badgeTickIntervalId);
+        badgeTickIntervalId = null;
+    }
 }
 async function syncAlarm(state) {
     await chrome.alarms.clear(ALARM_NAME);
@@ -261,6 +280,10 @@ async function syncAlarm(state) {
             delayInMinutes: BADGE_TICK_PERIOD_MINUTES,
             periodInMinutes: BADGE_TICK_PERIOD_MINUTES,
         });
+        startBadgeTick(state);
+    }
+    else {
+        stopBadgeTick();
     }
 }
 async function persistAndPublish(state) {
