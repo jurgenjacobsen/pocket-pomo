@@ -333,6 +333,11 @@ function normalizeState(state: TimerState, now: number): { normalizedState: Time
 }
 
 async function updateBadge(state: TimerState): Promise<void> {
+  if (!state.isRunning) {
+    await chrome.action.setBadgeText({ text: '' });
+    return;
+  }
+
   const remainingMs = getLiveRemainingMs(state, Date.now());
   const remainingSec = Math.ceil(remainingMs / 1000);
   const badgeText = remainingSec >= 60 ? `${Math.ceil(remainingSec / 60)}m` : `${Math.max(0, remainingSec)}s`;

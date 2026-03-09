@@ -245,6 +245,10 @@ function normalizeState(state, now) {
     };
 }
 async function updateBadge(state) {
+    if (!state.isRunning) {
+        await chrome.action.setBadgeText({ text: '' });
+        return;
+    }
     const remainingMs = getLiveRemainingMs(state, Date.now());
     const remainingSec = Math.ceil(remainingMs / 1000);
     const badgeText = remainingSec >= 60 ? `${Math.ceil(remainingSec / 60)}m` : `${Math.max(0, remainingSec)}s`;
