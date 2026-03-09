@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Pocket Pomo</title>
+		<link rel="stylesheet" href="style/popup.css" />
+	</head>
+	<body>
+		<main class="app">
+			<header class="app-header">
+				<p class="eyebrow">POCKET POMO</p>
+				<h1>Deep Work Timer</h1>
+			</header>
+
+			<section class="timer-card">
+				<div class="ring" id="progressRing" style="--progress: 0deg;">
+					<div class="ring-core">
+						<p class="mode" id="modeLabel">Focus</p>
+						<p class="time" id="timeLabel">25:00</p>
+					</div>
+				</div>
+				<p class="status" id="statusLabel">Ready to focus.</p>
+			</section>
+
+			<section class="controls">
+				<button id="startPauseButton" class="button button-primary">Start</button>
+				<button id="resetButton" class="button button-secondary">Reset</button>
+				<button id="skipButton" class="button button-ghost">Skip</button>
+			</section>
+
+			<section class="progress-card" aria-label="Progress and level">
+				<div class="progress-head">
+					<p class="level-label">Level <span id="levelValue">1</span></p>
+					<p class="xp-label"><span id="xpValue">0</span> XP</p>
+				</div>
+				<div class="xp-bar">
+					<div id="xpFill" class="xp-fill" style="width: 0%;"></div>
+				</div>
+				<p class="xp-sub" id="xpSubLabel">0 / 100 XP to next level</p>
+				<div class="stats-grid">
+					<div>
+						<p class="stat-value" id="pomodoroCount">0</p>
+						<p class="stat-label">Pomodoros</p>
+					</div>
+					<div>
+						<p class="stat-value" id="focusMinutesTotal">0</p>
+						<p class="stat-label">Focus Min</p>
+					</div>
+					<div>
+						<p class="stat-value" id="breakCount">0</p>
+						<p class="stat-label">Breaks</p>
+					</div>
+					<div>
+						<p class="stat-value" id="breakMinutesTotal">0</p>
+						<p class="stat-label">Break Min</p>
+					</div>
+				</div>
+			</section>
+
+			<section class="settings" aria-label="Timer settings">
+				<label>
+					Focus
+					<input id="focusMinutes" type="number" min="1" max="120" value="25" />
+				</label>
+				<label>
+					Short
+					<input id="shortBreakMinutes" type="number" min="1" max="60" value="5" />
+				</label>
+				<label>
+					Long
+					<input id="longBreakMinutes" type="number" min="1" max="90" value="15" />
+				</label>
+			</section>
+		</main>
+
+		<script type="module" src="scripts/popup.js"></script>
+	</body>
+</html>

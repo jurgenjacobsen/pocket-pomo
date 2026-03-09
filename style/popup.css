@@ -1,0 +1,344 @@
+:root {
+  --bg-start: #fdf4ea;
+  --bg-end: #f5e7d8;
+  --panel: #fff9f2;
+  --ink: #2a231f;
+  --muted: #7a685c;
+  --focus: #d9583b;
+  --short-break: #1f8c7f;
+  --long-break: #195ca8;
+  --ring-track: rgba(42, 35, 31, 0.1);
+  --shadow: 0 14px 34px rgba(92, 67, 52, 0.16);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 340px;
+  min-height: 520px;
+  color: var(--ink);
+  font-family: "Aptos", "Segoe UI Variable Display", "Bahnschrift", sans-serif;
+  background: radial-gradient(circle at 12% -8%, #ffe7ce 0%, transparent 35%),
+    radial-gradient(circle at 100% 0%, #ffd4bb 0%, transparent 32%),
+    linear-gradient(165deg, var(--bg-start), var(--bg-end));
+}
+
+.app {
+  position: relative;
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+}
+
+.app::before,
+.app::after {
+  content: "";
+  position: absolute;
+  border-radius: 999px;
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.app::before {
+  width: 120px;
+  height: 120px;
+  background: #ffc293;
+  top: -50px;
+  right: -50px;
+}
+
+.app::after {
+  width: 82px;
+  height: 82px;
+  background: #f9bb9f;
+  bottom: 126px;
+  left: -38px;
+}
+
+.app-header {
+  opacity: 0;
+  transform: translateY(8px);
+  animation: fade-up 340ms ease-out forwards;
+}
+
+.eyebrow {
+  margin: 0;
+  letter-spacing: 0.14em;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+h1 {
+  margin: 4px 0 0;
+  font-size: 27px;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.timer-card {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 20px 14px 14px;
+  border-radius: 24px;
+  background: linear-gradient(180deg, #fff8ef 0%, #fff3e8 100%);
+  box-shadow: var(--shadow);
+  opacity: 0;
+  transform: translateY(8px);
+  animation: fade-up 410ms ease-out 40ms forwards;
+}
+
+.ring {
+  --accent: var(--focus);
+  width: 210px;
+  height: 210px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: conic-gradient(var(--accent) var(--progress), var(--ring-track) 0deg);
+  transition: background 180ms linear;
+}
+
+.ring[data-mode="shortBreak"] {
+  --accent: var(--short-break);
+}
+
+.ring[data-mode="longBreak"] {
+  --accent: var(--long-break);
+}
+
+.ring-core {
+  width: 176px;
+  height: 176px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  gap: 4px;
+  background: var(--panel);
+  border: 1px solid rgba(40, 32, 28, 0.08);
+}
+
+.mode {
+  margin: 0;
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.time {
+  margin: 0;
+  font-size: 50px;
+  line-height: 1;
+  letter-spacing: -0.05em;
+  font-family: "Bahnschrift", "Aptos", sans-serif;
+}
+
+.status {
+  margin: 0;
+  min-height: 20px;
+  text-align: center;
+  color: #5e4e44;
+  font-size: 13px;
+}
+
+.controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  opacity: 0;
+  transform: translateY(8px);
+  animation: fade-up 470ms ease-out 80ms forwards;
+}
+
+.progress-card {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(255, 251, 244, 0.78);
+  border: 1px solid rgba(72, 53, 44, 0.1);
+  box-shadow: 0 6px 18px rgba(64, 45, 36, 0.1);
+  opacity: 0;
+  transform: translateY(8px);
+  animation: fade-up 500ms ease-out 100ms forwards;
+}
+
+.progress-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.level-label,
+.xp-label,
+.xp-sub {
+  margin: 0;
+}
+
+.level-label {
+  font-size: 13px;
+  color: #6a5548;
+}
+
+.level-label span {
+  color: #c55237;
+  font-weight: 700;
+}
+
+.xp-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #3f332d;
+}
+
+.xp-bar {
+  height: 9px;
+  border-radius: 999px;
+  background: rgba(94, 73, 59, 0.16);
+  overflow: hidden;
+}
+
+.xp-fill {
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #de6648, #e9a04b);
+  transition: width 250ms ease;
+}
+
+.xp-sub {
+  font-size: 11px;
+  color: #7a685c;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.stats-grid > div {
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.52);
+  padding: 8px 6px;
+}
+
+.stat-value {
+  margin: 0;
+  font-size: 20px;
+  font-family: "Bahnschrift", "Aptos", sans-serif;
+  line-height: 1.05;
+  color: #2f2520;
+}
+
+.stat-label {
+  margin: 2px 0 0;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #8a7568;
+}
+
+.button {
+  border: none;
+  border-radius: 12px;
+  padding: 11px 8px;
+  font-size: 14px;
+  font-weight: 650;
+  font-family: inherit;
+  cursor: pointer;
+  transition: transform 120ms ease, filter 120ms ease;
+}
+
+.button:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.03);
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.button-primary {
+  color: #fff8f0;
+  background: linear-gradient(120deg, #de6648, #c64f33);
+}
+
+.button-secondary {
+  color: #fff;
+  background: linear-gradient(120deg, #5f7ea8, #4e6f9b);
+}
+
+.button-ghost {
+  color: #3f332d;
+  background: rgba(139, 108, 88, 0.13);
+}
+
+.settings {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  opacity: 0;
+  transform: translateY(8px);
+  animation: fade-up 530ms ease-out 140ms forwards;
+}
+
+.settings label {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.settings input {
+  border: 1px solid rgba(65, 50, 43, 0.18);
+  border-radius: 10px;
+  padding: 9px 8px;
+  font-size: 16px;
+  font-family: "Bahnschrift", "Aptos", sans-serif;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.settings input:focus {
+  outline: 2px solid rgba(217, 88, 59, 0.35);
+  outline-offset: 1px;
+}
+
+@keyframes fade-up {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 380px) {
+  body {
+    min-width: 300px;
+  }
+
+  .ring {
+    width: 192px;
+    height: 192px;
+  }
+
+  .ring-core {
+    width: 160px;
+    height: 160px;
+  }
+
+  .time {
+    font-size: 44px;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
