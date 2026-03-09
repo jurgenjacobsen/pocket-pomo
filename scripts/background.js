@@ -3,7 +3,9 @@ const STORAGE_KEY = 'pocketPomoState';
 const ALARM_NAME = 'pocketPomoPhaseEnd';
 const BADGE_TICK_ALARM_NAME = 'pocketPomoBadgeTick';
 const BADGE_TICK_PERIOD_MINUTES = 1;
+const BADGE_TICK_INTERVAL_MS = 1000;
 const NOTIFICATION_ICON_PATH = 'assets/notify-icon-128.png';
+let badgeTickIntervalId = null;
 const DEFAULTS = {
     focusMinutes: 25,
     shortBreakMinutes: 5,
@@ -256,6 +258,18 @@ async function updateBadge(state) {
     const color = state.mode === 'focus' ? '#d9583b' : state.mode === 'shortBreak' ? '#1f8c7f' : '#195ca8';
     await chrome.action.setBadgeBackgroundColor({ color });
 }
+function startBadgeTick(state) {
+    stopBadgeTick();
+    badgeTickIntervalId = setInterval(() => {
+        void updateBadge(state);
+    }, BADGE_TICK_INTERVAL_MS);
+}
+function stopBadgeTick() {
+    if (badgeTickIntervalId !== null) {
+        clearInterval(badgeTickIntervalId);
+        badgeTickIntervalId = null;
+    }
+}
 async function syncAlarm(state) {
     await chrome.alarms.clear(ALARM_NAME);
     await chrome.alarms.clear(BADGE_TICK_ALARM_NAME);
@@ -265,6 +279,10 @@ async function syncAlarm(state) {
             delayInMinutes: BADGE_TICK_PERIOD_MINUTES,
             periodInMinutes: BADGE_TICK_PERIOD_MINUTES,
         });
+        startBadgeTick(state);
+    }
+    else {
+        stopBadgeTick();
     }
 }
 async function persistAndPublish(state) {

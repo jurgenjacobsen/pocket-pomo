@@ -42,7 +42,10 @@ const STORAGE_KEY = 'pocketPomoState';
 const ALARM_NAME = 'pocketPomoPhaseEnd';
 const BADGE_TICK_ALARM_NAME = 'pocketPomoBadgeTick';
 const BADGE_TICK_PERIOD_MINUTES = 1;
+const BADGE_TICK_INTERVAL_MS = 1_000;
 const NOTIFICATION_ICON_PATH = 'assets/notify-icon-128.png';
+
+let badgeTickIntervalId: ReturnType<typeof setInterval> | null = null;
 
 const DEFAULTS = {
   focusMinutes: 25,
@@ -348,6 +351,20 @@ async function updateBadge(state: TimerState): Promise<void> {
   await chrome.action.setBadgeBackgroundColor({ color });
 }
 
+function startBadgeTick(state: TimerState): void {
+  stopBadgeTick();
+  badgeTickIntervalId = setInterval(() => {
+    void updateBadge(state);
+  }, BADGE_TICK_INTERVAL_MS);
+}
+
+function stopBadgeTick(): void {
+  if (badgeTickIntervalId !== null) {
+    clearInterval(badgeTickIntervalId);
+    badgeTickIntervalId = null;
+  }
+}
+
 async function syncAlarm(state: TimerState): Promise<void> {
   await chrome.alarms.clear(ALARM_NAME);
   await chrome.alarms.clear(BADGE_TICK_ALARM_NAME);
@@ -358,6 +375,9 @@ async function syncAlarm(state: TimerState): Promise<void> {
       delayInMinutes: BADGE_TICK_PERIOD_MINUTES,
       periodInMinutes: BADGE_TICK_PERIOD_MINUTES,
     });
+    startBadgeTick(state);
+  } else {
+    stopBadgeTick();
   }
 }
 
