@@ -35,6 +35,7 @@ type IncomingMessage =
   | { action: 'pause' }
   | { action: 'reset' }
   | { action: 'skip' }
+  | { action: 'clearAll' }
   | {
       action: 'setDurations';
       payload: {
@@ -578,6 +579,16 @@ async function setDurations(payload: {
   return persistAndPublish(updated);
 }
 
+async function clearAllData(): Promise<TimerState> {
+  stopBadgeTick();
+  await chrome.alarms.clearAll();
+  await chrome.storage.local.remove([STORAGE_KEY, SESSIONS_KEY]);
+  await chrome.action.setBadgeText({ text: '' });
+  const fresh = createInitialState();
+  await saveState(fresh);
+  return fresh;
+}
+
 async function initializeState(): Promise<void> {
   await getCurrentState();
 }
@@ -594,6 +605,7 @@ function isIncomingMessage(message: unknown): message is IncomingMessage {
     action === 'pause' ||
     action === 'reset' ||
     action === 'skip' ||
+    action === 'clearAll' ||
     action === 'setDurations'
   );
 }
@@ -634,6 +646,8 @@ chrome.runtime.onMessage.addListener(
           return pauseTimer();
         case 'reset':
           return resetTimer();
+        case 'clearAll':
+          return clearAllData();
         case 'skip':
           return skipTimer();
         case 'setDurations':

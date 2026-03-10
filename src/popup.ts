@@ -29,6 +29,7 @@ type PopupMessage =
 	| { action: 'pause' }
 	| { action: 'reset' }
 	| { action: 'skip' }
+	| { action: 'clearAll' }
 	| {
 			action: 'setDurations';
 			payload: {
@@ -225,6 +226,17 @@ async function initialize(): Promise<void> {
 
 	document.getElementById('reportButton')?.addEventListener('click', () => {
 		void chrome.tabs.create({ url: chrome.runtime.getURL('report.html') });
+	});
+
+	document.getElementById('clearAllButton')?.addEventListener('click', () => {
+		if (!window.confirm('This will permanently delete all your stats, session history, and settings. Are you sure?')) {
+			return;
+		}
+		playSound(clickSound);
+		void sendMessage({ action: 'clearAll' }).then((state) => {
+			latestState = state;
+			render(state);
+		});
 	});
 
 	await refreshState();

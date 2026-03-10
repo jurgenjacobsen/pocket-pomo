@@ -321,6 +321,8 @@ h1 {
 
 .report-footer {
   display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
   opacity: 0;
   transform: translateY(8px);
   animation: fade-up 560ms ease-out 160ms forwards;
@@ -329,6 +331,11 @@ h1 {
 .report-button {
   width: 100%;
   font-size: 13px;
+}
+
+.button-danger {
+  color: #fff8f0;
+  background: linear-gradient(120deg, #b94040, #9b2c2c);
 }
 
 @media (max-width: 380px) {

@@ -445,6 +445,15 @@ async function setDurations(payload) {
     }
     return persistAndPublish(updated);
 }
+async function clearAllData() {
+    stopBadgeTick();
+    await chrome.alarms.clearAll();
+    await chrome.storage.local.remove([STORAGE_KEY, SESSIONS_KEY]);
+    await chrome.action.setBadgeText({ text: '' });
+    const fresh = createInitialState();
+    await saveState(fresh);
+    return fresh;
+}
 async function initializeState() {
     await getCurrentState();
 }
@@ -458,6 +467,7 @@ function isIncomingMessage(message) {
         action === 'pause' ||
         action === 'reset' ||
         action === 'skip' ||
+        action === 'clearAll' ||
         action === 'setDurations');
 }
 chrome.runtime.onInstalled.addListener(() => {
@@ -486,6 +496,8 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
                 return pauseTimer();
             case 'reset':
                 return resetTimer();
+            case 'clearAll':
+                return clearAllData();
             case 'skip':
                 return skipTimer();
             case 'setDurations':
