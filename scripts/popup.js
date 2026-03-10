@@ -158,6 +158,9 @@ async function initialize() {
             void updateDurationsFromInputs();
         });
     });
+    document.getElementById('reportButton')?.addEventListener('click', () => {
+        void chrome.tabs.create({ url: chrome.runtime.getURL('report.html') });
+    });
     await refreshState();
     refreshHandle = window.setInterval(() => {
         if (!latestState) {

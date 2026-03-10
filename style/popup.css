@@ -319,6 +319,18 @@ h1 {
   }
 }
 
+.report-footer {
+  display: grid;
+  opacity: 0;
+  transform: translateY(8px);
+  animation: fade-up 560ms ease-out 160ms forwards;
+}
+
+.report-button {
+  width: 100%;
+  font-size: 13px;
+}
+
 @media (max-width: 380px) {
   body {
     min-width: 300px;

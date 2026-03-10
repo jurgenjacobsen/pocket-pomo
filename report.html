@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Pocket Pomo – Monthly Report</title>
+		<style>
+			:root {
+				--bg: #fdf4ea;
+				--panel: #fff9f2;
+				--ink: #2a231f;
+				--muted: #7a685c;
+				--focus: #d9583b;
+				--short-break: #1f8c7f;
+				--long-break: #195ca8;
+				--border: rgba(42, 35, 31, 0.12);
+				--shadow: 0 6px 24px rgba(92, 67, 52, 0.14);
+			}
+
+			* {
+				box-sizing: border-box;
+			}
+
+			body {
+				margin: 0;
+				padding: 32px 24px 48px;
+				background: var(--bg);
+				color: var(--ink);
+				font-family: "Aptos", "Segoe UI Variable Display", "Bahnschrift", sans-serif;
+			}
+
+			.report {
+				max-width: 760px;
+				margin: 0 auto;
+				display: grid;
+				gap: 28px;
+			}
+
+			/* ── Header ── */
+			.report-header {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				flex-wrap: wrap;
+				gap: 12px;
+			}
+
+			.brand {
+				display: flex;
+				align-items: center;
+				gap: 10px;
+			}
+
+			.brand-icon {
+				font-size: 28px;
+			}
+
+			.brand-text h1 {
+				margin: 0;
+				font-size: 20px;
+				letter-spacing: -0.02em;
+			}
+
+			.brand-text p {
+				margin: 2px 0 0;
+				font-size: 12px;
+				letter-spacing: 0.08em;
+				text-transform: uppercase;
+				color: var(--muted);
+			}
+
+			.month-nav {
+				display: flex;
+				align-items: center;
+				gap: 10px;
+			}
+
+			.month-nav button {
+				width: 34px;
+				height: 34px;
+				border: 1px solid var(--border);
+				border-radius: 8px;
+				background: var(--panel);
+				color: var(--ink);
+				font-size: 16px;
+				cursor: pointer;
+				display: grid;
+				place-items: center;
+				transition: background 120ms;
+			}
+
+			.month-nav button:hover:not(:disabled) {
+				background: rgba(217, 88, 59, 0.1);
+			}
+
+			.month-nav button:disabled {
+				opacity: 0.35;
+				cursor: not-allowed;
+			}
+
+			#monthTitle {
+				font-size: 20px;
+				font-weight: 700;
+				min-width: 170px;
+				text-align: center;
+			}
+
+			/* ── Summary cards ── */
+			.summary {
+				display: grid;
+				grid-template-columns: repeat(4, minmax(0, 1fr));
+				gap: 12px;
+			}
+
+			.stat-card {
+				background: var(--panel);
+				border: 1px solid var(--border);
+				border-radius: 16px;
+				padding: 16px 12px;
+				text-align: center;
+				box-shadow: var(--shadow);
+			}
+
+			.stat-number {
+				font-size: 32px;
+				font-family: "Bahnschrift", "Aptos", sans-serif;
+				font-weight: 700;
+				color: var(--focus);
+				line-height: 1;
+			}
+
+			.stat-label {
+				margin-top: 6px;
+				font-size: 11px;
+				letter-spacing: 0.08em;
+				text-transform: uppercase;
+				color: var(--muted);
+			}
+
+			/* ── Daily table ── */
+			.daily-section h2 {
+				margin: 0 0 12px;
+				font-size: 15px;
+				letter-spacing: 0.06em;
+				text-transform: uppercase;
+				color: var(--muted);
+			}
+
+			#noData {
+				color: var(--muted);
+				font-size: 14px;
+				padding: 20px 0;
+			}
+
+			.daily-table {
+				width: 100%;
+				border-collapse: collapse;
+				background: var(--panel);
+				border-radius: 14px;
+				overflow: hidden;
+				box-shadow: var(--shadow);
+			}
+
+			.daily-table th {
+				padding: 12px 14px;
+				text-align: left;
+				font-size: 11px;
+				letter-spacing: 0.08em;
+				text-transform: uppercase;
+				color: var(--muted);
+				border-bottom: 1px solid var(--border);
+				background: rgba(255, 251, 244, 0.9);
+			}
+
+			.daily-table td {
+				padding: 11px 14px;
+				font-size: 14px;
+				border-bottom: 1px solid rgba(42, 35, 31, 0.06);
+			}
+
+			.daily-table tbody tr:last-child td {
+				border-bottom: none;
+			}
+
+			.daily-table tbody tr:hover {
+				background: rgba(217, 88, 59, 0.04);
+			}
+
+			/* ── Print button ── */
+			.report-footer {
+				display: flex;
+				justify-content: center;
+			}
+
+			.print-button {
+				border: none;
+				border-radius: 12px;
+				padding: 13px 28px;
+				font-size: 15px;
+				font-weight: 650;
+				font-family: inherit;
+				cursor: pointer;
+				color: #fff8f0;
+				background: linear-gradient(120deg, #de6648, #c64f33);
+				transition: transform 120ms ease, filter 120ms ease;
+				box-shadow: 0 4px 14px rgba(198, 79, 51, 0.32);
+			}
+
+			.print-button:hover {
+				transform: translateY(-1px);
+				filter: brightness(1.04);
+			}
+
+			/* ── Print styles ── */
+			@media print {
+				body {
+					background: #fff;
+					padding: 0;
+				}
+
+				.no-print {
+					display: none !important;
+				}
+
+				.stat-card,
+				.daily-table {
+					box-shadow: none;
+					border: 1px solid #ccc;
+				}
+			}
+
+			@media (max-width: 580px) {
+				.summary {
+					grid-template-columns: repeat(2, minmax(0, 1fr));
+				}
+
+				#monthTitle {
+					min-width: 140px;
+					font-size: 17px;
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<div class="report">
+			<header class="report-header">
+				<div class="brand">
+					<span class="brand-icon">🍅</span>
+					<div class="brand-text">
+						<h1>Pocket Pomo</h1>
+						<p>Monthly Productivity Report</p>
+					</div>
+				</div>
+				<div class="month-nav no-print">
+					<button id="prevMonth" title="Previous month">&#8592;</button>
+					<span id="monthTitle">Loading…</span>
+					<button id="nextMonth" title="Next month">&#8594;</button>
+				</div>
+			</header>
+
+			<section class="summary" aria-label="Monthly summary">
+				<div class="stat-card">
+					<div class="stat-number" id="totalPomodoros">—</div>
+					<div class="stat-label">Pomodoros</div>
+				</div>
+				<div class="stat-card">
+					<div class="stat-number" id="totalFocusTime">—</div>
+					<div class="stat-label">Focus Time</div>
+				</div>
+				<div class="stat-card">
+					<div class="stat-number" id="totalBreaks">—</div>
+					<div class="stat-label">Breaks</div>
+				</div>
+				<div class="stat-card">
+					<div class="stat-number" id="totalBreakTime">—</div>
+					<div class="stat-label">Break Time</div>
+				</div>
+			</section>
+
+			<section class="daily-section" aria-label="Daily breakdown">
+				<h2>Daily Breakdown</h2>
+				<p id="noData" style="display: none">No sessions recorded for this month.</p>
+				<table class="daily-table" id="dailyTable">
+					<thead>
+						<tr>
+							<th>Date</th>
+							<th>Pomodoros</th>
+							<th>Focus Time</th>
+							<th>Breaks</th>
+							<th>Break Time</th>
+						</tr>
+					</thead>
+					<tbody id="dailyBody"></tbody>
+				</table>
+			</section>
+
+			<footer class="report-footer no-print">
+				<button id="printBtn" class="print-button">🖨️&nbsp; Print / Save as PDF</button>
+			</footer>
+		</div>
+
+		<script type="module" src="scripts/report.js"></script>
+	</body>
+</html>

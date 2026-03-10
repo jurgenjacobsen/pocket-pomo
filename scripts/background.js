@@ -1,5 +1,6 @@
 "use strict";
 const STORAGE_KEY = 'pocketPomoState';
+const SESSIONS_KEY = 'pocketPomoSessions';
 const ALARM_NAME = 'pocketPomoPhaseEnd';
 const BADGE_TICK_ALARM_NAME = 'pocketPomoBadgeTick';
 const BADGE_TICK_PERIOD_MINUTES = 1;
@@ -335,12 +336,27 @@ async function syncAlarm(state) {
         stopBadgeTick();
     }
 }
+async function appendSession(session) {
+    const result = await chrome.storage.local.get(SESSIONS_KEY);
+    const existing = Array.isArray(result[SESSIONS_KEY]) ? result[SESSIONS_KEY] : [];
+    // Prune sessions older than 13 months to keep storage bounded
+    const cutoff = new Date();
+    cutoff.setMonth(cutoff.getMonth() - 13);
+    const cutoffMs = cutoff.getTime();
+    const pruned = existing.filter((s) => s.timestamp >= cutoffMs);
+    pruned.push(session);
+    await chrome.storage.local.set({ [SESSIONS_KEY]: pruned });
+}
 async function persistAndPublish(state) {
     const { normalizedState, completionEvents } = normalizeState(state, Date.now());
     await saveState(normalizedState);
     await syncAlarm(normalizedState);
     await updateBadge(normalizedState);
     if (completionEvents.length > 0) {
+        for (const completedMode of completionEvents) {
+            const minutes = minutesForMode(state, completedMode);
+            await appendSession({ timestamp: Date.now(), type: completedMode, minutes });
+        }
         await playCompletionChime();
         for (const completedMode of completionEvents) {
             const nextMode = normalizedState.mode;
