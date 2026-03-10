@@ -29,6 +29,7 @@ type PopupMessage =
 	| { action: 'pause' }
 	| { action: 'reset' }
 	| { action: 'skip' }
+	| { action: 'clearData' }
 	| {
 			action: 'setDurations';
 			payload: {
@@ -45,6 +46,7 @@ const progressRing = document.getElementById('progressRing') as HTMLDivElement;
 const startPauseButton = document.getElementById('startPauseButton') as HTMLButtonElement;
 const resetButton = document.getElementById('resetButton') as HTMLButtonElement;
 const skipButton = document.getElementById('skipButton') as HTMLButtonElement;
+const clearDataButton = document.getElementById('clearDataButton') as HTMLButtonElement;
 
 const focusInput = document.getElementById('focusMinutes') as HTMLInputElement;
 const shortBreakInput = document.getElementById('shortBreakMinutes') as HTMLInputElement;
@@ -212,6 +214,19 @@ async function initialize(): Promise<void> {
 	skipButton.addEventListener('click', () => {
 		playSound(clickSound);
 		void sendMessage({ action: 'skip' }).then((state) => {
+			latestState = state;
+			render(state);
+		});
+	});
+
+	clearDataButton.addEventListener('click', () => {
+		const shouldClear = window.confirm('Clear all saved settings and progress data? This cannot be undone.');
+		if (!shouldClear) {
+			return;
+		}
+
+		playSound(clickSound);
+		void sendMessage({ action: 'clearData' }).then((state) => {
 			latestState = state;
 			render(state);
 		});

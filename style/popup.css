@@ -281,6 +281,15 @@ h1 {
   background: rgba(139, 108, 88, 0.13);
 }
 
+.button-danger {
+  color: #fff7f3;
+  background: linear-gradient(120deg, #b94234, #922f24);
+}
+
+.button-full {
+  width: 100%;
+}
+
 .settings {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -310,6 +319,12 @@ h1 {
 .settings input:focus {
   outline: 2px solid rgba(217, 88, 59, 0.35);
   outline-offset: 1px;
+}
+
+.clear-data {
+  opacity: 0;
+  transform: translateY(8px);
+  animation: fade-up 560ms ease-out 170ms forwards;
 }
 
 @keyframes fade-up {

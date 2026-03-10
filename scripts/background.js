@@ -429,6 +429,10 @@ async function setDurations(payload) {
     }
     return persistAndPublish(updated);
 }
+async function clearData() {
+    await chrome.storage.local.remove(STORAGE_KEY);
+    return persistAndPublish(createInitialState());
+}
 async function initializeState() {
     await getCurrentState();
 }
@@ -442,6 +446,7 @@ function isIncomingMessage(message) {
         action === 'pause' ||
         action === 'reset' ||
         action === 'skip' ||
+        action === 'clearData' ||
         action === 'setDurations');
 }
 chrome.runtime.onInstalled.addListener(() => {
@@ -472,6 +477,8 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
                 return resetTimer();
             case 'skip':
                 return skipTimer();
+            case 'clearData':
+                return clearData();
             case 'setDurations':
                 return setDurations(message.payload);
         }

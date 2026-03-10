@@ -5,6 +5,7 @@ const progressRing = document.getElementById('progressRing');
 const startPauseButton = document.getElementById('startPauseButton');
 const resetButton = document.getElementById('resetButton');
 const skipButton = document.getElementById('skipButton');
+const clearDataButton = document.getElementById('clearDataButton');
 const focusInput = document.getElementById('focusMinutes');
 const shortBreakInput = document.getElementById('shortBreakMinutes');
 const longBreakInput = document.getElementById('longBreakMinutes');
@@ -149,6 +150,17 @@ async function initialize() {
     skipButton.addEventListener('click', () => {
         playSound(clickSound);
         void sendMessage({ action: 'skip' }).then((state) => {
+            latestState = state;
+            render(state);
+        });
+    });
+    clearDataButton.addEventListener('click', () => {
+        const shouldClear = window.confirm('Clear all saved settings and progress data? This cannot be undone.');
+        if (!shouldClear) {
+            return;
+        }
+        playSound(clickSound);
+        void sendMessage({ action: 'clearData' }).then((state) => {
             latestState = state;
             render(state);
         });
