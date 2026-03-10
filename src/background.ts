@@ -1,5 +1,11 @@
 type PomodoroMode = 'focus' | 'shortBreak' | 'longBreak';
 
+interface SessionRecord {
+  timestamp: number;
+  type: PomodoroMode;
+  minutes: number;
+}
+
 interface TimerState {
   mode: PomodoroMode;
   isRunning: boolean;
@@ -29,6 +35,7 @@ type IncomingMessage =
   | { action: 'pause' }
   | { action: 'reset' }
   | { action: 'skip' }
+  | { action: 'clearAll' }
   | {
       action: 'setDurations';
       payload: {
@@ -39,6 +46,7 @@ type IncomingMessage =
     };
 
 const STORAGE_KEY = 'pocketPomoState';
+const SESSIONS_KEY = 'pocketPomoSessions';
 const ALARM_NAME = 'pocketPomoPhaseEnd';
 const BADGE_TICK_ALARM_NAME = 'pocketPomoBadgeTick';
 const BADGE_TICK_PERIOD_MINUTES = 1;
@@ -434,6 +442,18 @@ async function syncAlarm(state: TimerState): Promise<void> {
   }
 }
 
+async function appendSession(session: SessionRecord): Promise<void> {
+  const result = await chrome.storage.local.get(SESSIONS_KEY);
+  const existing = Array.isArray(result[SESSIONS_KEY]) ? (result[SESSIONS_KEY] as SessionRecord[]) : [];
+  // Prune sessions older than 13 months to keep storage bounded
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - 13);
+  const cutoffMs = cutoff.getTime();
+  const pruned = existing.filter((s) => s.timestamp >= cutoffMs);
+  pruned.push(session);
+  await chrome.storage.local.set({ [SESSIONS_KEY]: pruned });
+}
+
 async function persistAndPublish(state: TimerState): Promise<TimerState> {
   const { normalizedState, completionEvents } = normalizeState(state, Date.now());
   await saveState(normalizedState);
@@ -441,6 +461,10 @@ async function persistAndPublish(state: TimerState): Promise<TimerState> {
   await updateBadge(normalizedState);
 
   if (completionEvents.length > 0) {
+    for (const completedMode of completionEvents) {
+      const minutes = minutesForMode(state, completedMode);
+      await appendSession({ timestamp: Date.now(), type: completedMode, minutes });
+    }
     await playCompletionChime();
     for (const completedMode of completionEvents) {
       const nextMode = normalizedState.mode;
@@ -555,6 +579,16 @@ async function setDurations(payload: {
   return persistAndPublish(updated);
 }
 
+async function clearAllData(): Promise<TimerState> {
+  stopBadgeTick();
+  await chrome.alarms.clearAll();
+  await chrome.storage.local.remove([STORAGE_KEY, SESSIONS_KEY]);
+  await chrome.action.setBadgeText({ text: '' });
+  const fresh = createInitialState();
+  await saveState(fresh);
+  return fresh;
+}
+
 async function initializeState(): Promise<void> {
   await getCurrentState();
 }
@@ -571,6 +605,7 @@ function isIncomingMessage(message: unknown): message is IncomingMessage {
     action === 'pause' ||
     action === 'reset' ||
     action === 'skip' ||
+    action === 'clearAll' ||
     action === 'setDurations'
   );
 }
@@ -611,6 +646,8 @@ chrome.runtime.onMessage.addListener(
           return pauseTimer();
         case 'reset':
           return resetTimer();
+        case 'clearAll':
+          return clearAllData();
         case 'skip':
           return skipTimer();
         case 'setDurations':

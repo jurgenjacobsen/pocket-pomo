@@ -158,6 +158,19 @@ async function initialize() {
             void updateDurationsFromInputs();
         });
     });
+    document.getElementById('reportButton')?.addEventListener('click', () => {
+        void chrome.tabs.create({ url: chrome.runtime.getURL('report.html') });
+    });
+    document.getElementById('clearAllButton')?.addEventListener('click', () => {
+        if (!window.confirm('This will permanently delete all your stats, session history, and settings. Are you sure?')) {
+            return;
+        }
+        playSound(clickSound);
+        void sendMessage({ action: 'clearAll' }).then((state) => {
+            latestState = state;
+            render(state);
+        });
+    });
     await refreshState();
     refreshHandle = window.setInterval(() => {
         if (!latestState) {
