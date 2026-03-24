@@ -316,6 +316,13 @@ h1 {
   background: rgba(255, 255, 255, 0.7);
 }
 
+.settings input:disabled {
+  background: rgba(200, 180, 170, 0.4);
+  color: rgba(122, 104, 92, 0.6);
+  cursor: not-allowed;
+  border-color: rgba(65, 50, 43, 0.25);
+}
+
 .settings input:focus {
   outline: 2px solid rgba(217, 88, 59, 0.35);
   outline-offset: 1px;

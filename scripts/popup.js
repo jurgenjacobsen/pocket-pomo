@@ -91,11 +91,25 @@ function render(state) {
     statusLabel.textContent = getStatusText(state, liveRemaining);
     progressRing.style.setProperty('--progress', degrees);
     progressRing.dataset.mode = state.mode;
-    startPauseButton.textContent = state.isRunning ? 'Pause' : 'Start';
+    startPauseButton.textContent = state.isRunning ? 'Pause' : (state.remainingMs < state.totalPhaseMs ? 'Resume' : 'Start');
     skipButton.disabled = state.isRunning && liveRemaining <= 1000;
-    focusInput.value = String(state.focusMinutes);
-    shortBreakInput.value = String(state.shortBreakMinutes);
-    longBreakInput.value = String(state.longBreakMinutes);
+    // Disable duration inputs for the currently running mode
+    focusInput.disabled = state.isRunning && state.mode === 'focus';
+    shortBreakInput.disabled = state.isRunning && state.mode === 'shortBreak';
+    longBreakInput.disabled = state.isRunning && state.mode === 'longBreak';
+    // Add tooltips
+    focusInput.title = focusInput.disabled ? 'Cannot change duration while timer is running' : '';
+    shortBreakInput.title = shortBreakInput.disabled ? 'Cannot change duration while timer is running' : '';
+    longBreakInput.title = longBreakInput.disabled ? 'Cannot change duration while timer is running' : '';
+    if (document.activeElement !== focusInput) {
+        focusInput.value = String(state.focusMinutes);
+    }
+    if (document.activeElement !== shortBreakInput) {
+        shortBreakInput.value = String(state.shortBreakMinutes);
+    }
+    if (document.activeElement !== longBreakInput) {
+        longBreakInput.value = String(state.longBreakMinutes);
+    }
     levelValue.textContent = String(level);
     xpValue.textContent = String(totalXp);
     xpFill.style.width = `${Math.round(clamp(xpProgress, 0, 1) * 100)}%`;
@@ -117,8 +131,32 @@ function readDurationInputs() {
     };
 }
 async function updateDurationsFromInputs() {
-    const payload = readDurationInputs();
-    latestState = await sendMessage({ action: 'setDurations', payload });
+    if (!latestState) {
+        return;
+    }
+    const newPayload = readDurationInputs();
+    // Determine which mode's duration changed
+    let changedMode = null;
+    if (newPayload.focusMinutes !== latestState.focusMinutes) {
+        changedMode = 'focus';
+    }
+    else if (newPayload.shortBreakMinutes !== latestState.shortBreakMinutes) {
+        changedMode = 'shortBreak';
+    }
+    else if (newPayload.longBreakMinutes !== latestState.longBreakMinutes) {
+        changedMode = 'longBreak';
+    }
+    // If timer is running and the changed mode is the currently running mode, prevent the change
+    if (latestState.isRunning && changedMode === latestState.mode) {
+        render(latestState);
+        return;
+    }
+    latestState = await sendMessage({ action: 'setDurations', payload: newPayload });
+    // If timer is paused and the current mode's duration was changed, reset the timer
+    const isPaused = !latestState.isRunning && latestState.remainingMs < latestState.totalPhaseMs;
+    if (isPaused && changedMode === latestState.mode) {
+        latestState = await sendMessage({ action: 'reset' });
+    }
     render(latestState);
 }
 async function handleStartPause() {

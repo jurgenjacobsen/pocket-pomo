@@ -1,11 +1,12 @@
 {
   "name": "pocket-pomo",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Pomodoro timer extension for Google Chrome.",
   "main": "index.js",
   "scripts": {
     "build": "tsc",
-    "watch": "tsc --watch"
+    "watch": "tsc --watch",
+    "bundle": "powershell -ExecutionPolicy Bypass -File ./automation/package.ps1"
   },
   "repository": {
     "type": "git",
