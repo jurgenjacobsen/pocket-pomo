@@ -7,6 +7,8 @@
 		<link rel="stylesheet" href="style/popup.css" />
 	</head>
 	<body>
+		<canvas id="confettiCanvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 100;"></canvas>
+
 		<main class="app">
 			<header class="app-header">
 				<p class="eyebrow">POCKET POMO</p>
@@ -38,6 +40,12 @@
 					<div id="xpFill" class="xp-fill" style="width: 0%;"></div>
 				</div>
 				<p class="xp-sub" id="xpSubLabel">0 / 100 XP to next level</p>
+
+				<div class="daily-streak-row">
+					<p class="daily-goal-label">Daily Goal: <span id="dailyGoalProgress">0 / 4</span></p>
+					<p class="streak-label">🔥 <span id="streakValue">0</span> Day Streak</p>
+				</div>
+
 				<div class="stats-grid">
 					<div>
 						<p class="stat-value" id="pomodoroCount">0</p>
@@ -58,6 +66,20 @@
 				</div>
 			</section>
 
+			<section class="task-card" aria-label="Focus Tasks">
+				<div class="task-header">
+					<h2>Focus Tasks</h2>
+					<span class="task-count" id="taskCount">0 active</span>
+				</div>
+				<div class="task-input-wrapper">
+					<input id="newTaskInput" type="text" placeholder="What are you focusing on?" maxlength="60" />
+					<button id="addTaskButton" class="button button-ghost" type="button">Add</button>
+				</div>
+				<ul id="taskList" class="task-list">
+					<!-- Tasks will be injected here dynamically -->
+				</ul>
+			</section>
+
 			<section class="settings" aria-label="Timer settings">
 				<label>
 					Focus
@@ -70,6 +92,22 @@
 				<label>
 					Long
 					<input id="longBreakMinutes" type="number" min="1" max="90" value="15" />
+				</label>
+			</section>
+
+			<section class="settings-extra" aria-label="Extra settings">
+				<label>
+					Alert Sound
+					<select id="soundChimeSelect">
+						<option value="chime">Cozy Chime</option>
+						<option value="bell">Soft Bell</option>
+						<option value="digital">Digital Beep</option>
+						<option value="synth">Synth Arpeggio</option>
+					</select>
+				</label>
+				<label>
+					Daily Goal
+					<input id="dailyGoalInput" type="number" min="1" max="20" value="4" />
 				</label>
 			</section>
 

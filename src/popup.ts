@@ -1,5 +1,11 @@
 export type PomodoroMode = 'focus' | 'shortBreak' | 'longBreak';
 
+export interface Task {
+	id: string;
+	text: string;
+	completed: boolean;
+}
+
 interface TimerState {
 	mode: PomodoroMode;
 	isRunning: boolean;
@@ -21,6 +27,13 @@ interface TimerState {
 	level: number;
 	xpInCurrentLevel: number;
 	xpForNextLevel: number;
+	// New features
+	tasks: Task[];
+	soundChime: 'chime' | 'bell' | 'digital' | 'synth';
+	dailyGoalCount: number;
+	dailyPomodorosCompleted: number;
+	lastActiveDate: string;
+	streakCount: number;
 }
 
 type PopupMessage =
@@ -37,7 +50,12 @@ type PopupMessage =
 				shortBreakMinutes: number;
 				longBreakMinutes: number;
 			};
-		};
+		}
+	| { action: 'addTask'; payload: { text: string } }
+	| { action: 'toggleTask'; payload: { id: string } }
+	| { action: 'deleteTask'; payload: { id: string } }
+	| { action: 'setDailyGoal'; payload: { dailyGoalCount: number } }
+	| { action: 'setSoundChime'; payload: { soundChime: 'chime' | 'bell' | 'digital' | 'synth' } };
 
 const timeLabel = document.getElementById('timeLabel') as HTMLParagraphElement;
 const modeLabel = document.getElementById('modeLabel') as HTMLParagraphElement;
@@ -60,9 +78,20 @@ const focusMinutesTotal = document.getElementById('focusMinutesTotal') as HTMLPa
 const breakCount = document.getElementById('breakCount') as HTMLParagraphElement;
 const breakMinutesTotal = document.getElementById('breakMinutesTotal') as HTMLParagraphElement;
 
+const taskCount = document.getElementById('taskCount') as HTMLSpanElement;
+const newTaskInput = document.getElementById('newTaskInput') as HTMLInputElement;
+const addTaskButton = document.getElementById('addTaskButton') as HTMLButtonElement;
+const taskList = document.getElementById('taskList') as HTMLUListElement;
+
+const soundChimeSelect = document.getElementById('soundChimeSelect') as HTMLSelectElement;
+const dailyGoalInput = document.getElementById('dailyGoalInput') as HTMLInputElement;
+const dailyGoalProgress = document.getElementById('dailyGoalProgress') as HTMLSpanElement;
+const streakValue = document.getElementById('streakValue') as HTMLSpanElement;
+
 const clickSound = new Audio(chrome.runtime.getURL('assets/click.mp3'));
 
 let latestState: TimerState | null = null;
+let previousState: TimerState | null = null;
 let refreshHandle: number | null = null;
 
 const MODE_LABELS: Record<PomodoroMode, string> = {
@@ -105,6 +134,99 @@ function playSound(sound: HTMLAudioElement): void {
 	}
 }
 
+interface ConfettiParticle {
+	x: number;
+	y: number;
+	size: number;
+	color: string;
+	speedX: number;
+	speedY: number;
+	rotation: number;
+	rotationSpeed: number;
+}
+
+const confettiParticles: ConfettiParticle[] = [];
+let confettiActive = false;
+let confettiCanvas: HTMLCanvasElement | null = null;
+let confettiCtx: CanvasRenderingContext2D | null = null;
+let confettiAnimationId: number | null = null;
+const CONFETTI_COLORS = ['#de6648', '#e9a04b', '#1f8c7f', '#195ca8', '#ffd4bb', '#5f7ea8'];
+
+function initConfetti(): void {
+	confettiCanvas = document.getElementById('confettiCanvas') as HTMLCanvasElement;
+	if (!confettiCanvas) return;
+	confettiCtx = confettiCanvas.getContext('2d');
+	resizeConfettiCanvas();
+}
+
+function resizeConfettiCanvas(): void {
+	if (confettiCanvas) {
+		confettiCanvas.width = confettiCanvas.clientWidth;
+		confettiCanvas.height = confettiCanvas.clientHeight;
+	}
+}
+
+function spawnConfetti(count = 100): void {
+	if (!confettiCanvas || !confettiCtx) return;
+	resizeConfettiCanvas();
+
+	for (let i = 0; i < count; i++) {
+		confettiParticles.push({
+			x: Math.random() * confettiCanvas.width,
+			y: -10 - Math.random() * 20,
+			size: Math.random() * 6 + 4,
+			color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
+			speedX: Math.random() * 4 - 2,
+			speedY: Math.random() * 3 + 2,
+			rotation: Math.random() * 360,
+			rotationSpeed: Math.random() * 10 - 5,
+		});
+	}
+
+	if (!confettiActive) {
+		confettiActive = true;
+		animateConfetti();
+	}
+}
+
+function animateConfetti(): void {
+	if (!confettiCanvas || !confettiCtx || confettiParticles.length === 0) {
+		confettiActive = false;
+		if (confettiAnimationId !== null) {
+			cancelAnimationFrame(confettiAnimationId);
+			confettiAnimationId = null;
+		}
+		return;
+	}
+
+	confettiCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+
+	for (let i = confettiParticles.length - 1; i >= 0; i--) {
+		const p = confettiParticles[i];
+		p.y += p.speedY;
+		p.x += p.speedX;
+		p.rotation += p.rotationSpeed;
+
+		confettiCtx.save();
+		confettiCtx.translate(p.x, p.y);
+		confettiCtx.rotate((p.rotation * Math.PI) / 180);
+		confettiCtx.fillStyle = p.color;
+		confettiCtx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+		confettiCtx.restore();
+
+		if (p.y > confettiCanvas.height) {
+			confettiParticles.splice(i, 1);
+		}
+	}
+
+	confettiAnimationId = requestAnimationFrame(animateConfetti);
+}
+
+function escapeHtml(text: string): string {
+	const div = document.createElement('div');
+	div.textContent = text;
+	return div.innerHTML;
+}
 function getLiveRemaining(state: TimerState): number {
 	if (!state.isRunning || state.phaseEndMs === null) {
 		return state.remainingMs;
@@ -125,6 +247,18 @@ function getStatusText(state: TimerState, remainingMs: number): string {
 async function sendMessage(message: PopupMessage): Promise<TimerState> {
 	const response = await chrome.runtime.sendMessage(message);
 	return response as TimerState;
+}
+
+function tasksAreEqual(a: Task[], b: Task[]): boolean {
+	if (a.length !== b.length) {
+		return false;
+	}
+	for (let i = 0; i < a.length; i++) {
+		if (a[i].id !== b[i].id || a[i].completed !== b[i].completed || a[i].text !== b[i].text) {
+			return false;
+		}
+	}
+	return true;
 }
 
 function render(state: TimerState): void {
@@ -177,6 +311,55 @@ function render(state: TimerState): void {
 	focusMinutesTotal.textContent = String(asSafeNumber(state.totalFocusMinutesCompleted));
 	breakCount.textContent = String(totalBreaks);
 	breakMinutesTotal.textContent = String(asSafeNumber(state.totalBreakMinutesCompleted));
+
+	// Daily Goal & Streak display
+	dailyGoalProgress.textContent = `${state.dailyPomodorosCompleted} / ${state.dailyGoalCount}`;
+	streakValue.textContent = String(state.streakCount);
+
+	if (document.activeElement !== dailyGoalInput) {
+		dailyGoalInput.value = String(state.dailyGoalCount);
+	}
+	if (document.activeElement !== soundChimeSelect) {
+		soundChimeSelect.value = state.soundChime || 'chime';
+	}
+
+	// Focus Tasks Checklist rendering
+	const tasks: Task[] = state.tasks || [];
+	const prevTasks: Task[] = previousState?.tasks || [];
+	if (!previousState || !tasksAreEqual(prevTasks, tasks)) {
+		const activeTasksCount = tasks.filter((t: Task) => !t.completed).length;
+		taskCount.textContent = `${activeTasksCount} active`;
+
+		// Sort tasks: unchecked first, checked last
+		const sortedTasks = [...tasks].sort((a, b) => {
+			if (a.completed === b.completed) return 0;
+			return a.completed ? 1 : -1;
+		});
+
+		taskList.innerHTML = '';
+		sortedTasks.forEach((task: Task) => {
+			const li = document.createElement('li');
+			li.className = `task-item ${task.completed ? 'completed' : ''}`;
+			li.innerHTML = `
+				<div class="task-item-left" data-id="${task.id}">
+					<input type="checkbox" ${task.completed ? 'checked' : ''} />
+					<span class="task-text">${escapeHtml(task.text)}</span>
+				</div>
+				<button class="task-delete-btn" data-id="${task.id}" title="Delete Task">🗑️</button>
+			`;
+			taskList.appendChild(li);
+		});
+	}
+
+	// Trigger confetti celebrations on level up or Pomodoro completion
+	if (previousState) {
+		if (state.level > previousState.level) {
+			spawnConfetti(150);
+		} else if (state.totalPomodorosCompleted > previousState.totalPomodorosCompleted) {
+			spawnConfetti(80);
+		}
+	}
+	previousState = state;
 }
 
 async function refreshState(): Promise<void> {
@@ -243,6 +426,8 @@ async function handleStartPause(): Promise<void> {
 }
 
 async function initialize(): Promise<void> {
+	initConfetti();
+
 	startPauseButton.addEventListener('click', () => {
 		void handleStartPause();
 	});
@@ -272,6 +457,7 @@ async function initialize(): Promise<void> {
 		playSound(clickSound);
 		void sendMessage({ action: 'clearData' }).then((state) => {
 			latestState = state;
+			previousState = null;
 			render(state);
 		});
 	});
@@ -280,6 +466,86 @@ async function initialize(): Promise<void> {
 		input.addEventListener('change', () => {
 			void updateDurationsFromInputs();
 		});
+	});
+
+	soundChimeSelect.addEventListener('change', () => {
+		void sendMessage({
+			action: 'setSoundChime',
+			payload: { soundChime: soundChimeSelect.value as any }
+		}).then((state) => {
+			latestState = state;
+			render(state);
+		});
+	});
+
+	dailyGoalInput.addEventListener('change', () => {
+		const goalVal = clamp(Number(dailyGoalInput.value) || 4, 1, 20);
+		void sendMessage({
+			action: 'setDailyGoal',
+			payload: { dailyGoalCount: goalVal }
+		}).then((state) => {
+			latestState = state;
+			render(state);
+		});
+	});
+
+	const handleAddTask = () => {
+		const text = newTaskInput.value.trim();
+		if (!text) return;
+		newTaskInput.value = '';
+		playSound(clickSound);
+		void sendMessage({
+			action: 'addTask',
+			payload: { text }
+		}).then((state) => {
+			latestState = state;
+			render(state);
+		});
+	};
+
+	addTaskButton.addEventListener('click', handleAddTask);
+	newTaskInput.addEventListener('keydown', (e) => {
+		if (e.key === 'Enter') {
+			handleAddTask();
+		}
+	});
+
+	taskList.addEventListener('click', (e) => {
+		const target = e.target as HTMLElement;
+
+		// Checkbox or text row toggle
+		const itemLeft = target.closest('.task-item-left') as HTMLElement;
+		if (itemLeft) {
+			const id = itemLeft.dataset.id;
+			if (id) {
+				playSound(clickSound);
+				void sendMessage({
+					action: 'toggleTask',
+					payload: { id }
+				}).then((state) => {
+					latestState = state;
+					render(state);
+				});
+			}
+			return;
+		}
+
+		// Delete task button
+		const deleteBtn = target.closest('.task-delete-btn') as HTMLElement;
+		if (deleteBtn) {
+			const id = deleteBtn.dataset.id;
+			if (id) {
+				playSound(clickSound);
+				void sendMessage({
+					action: 'deleteTask',
+					payload: { id }
+				}).then((state) => {
+					latestState = state;
+					render(state);
+				});
+			}
+			return;
+		}
 	});
 
 	await refreshState();

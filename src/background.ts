@@ -1,5 +1,11 @@
 type PomodoroMode = 'focus' | 'shortBreak' | 'longBreak';
 
+interface Task {
+  id: string;
+  text: string;
+  completed: boolean;
+}
+
 interface TimerState {
   mode: PomodoroMode;
   isRunning: boolean;
@@ -21,6 +27,13 @@ interface TimerState {
   level: number;
   xpInCurrentLevel: number;
   xpForNextLevel: number;
+  // New features
+  tasks: Task[];
+  soundChime: 'chime' | 'bell' | 'digital' | 'synth';
+  dailyGoalCount: number;
+  dailyPomodorosCompleted: number;
+  lastActiveDate: string;
+  streakCount: number;
 }
 
 type IncomingMessage =
@@ -37,7 +50,12 @@ type IncomingMessage =
         shortBreakMinutes: number;
         longBreakMinutes: number;
       };
-    };
+    }
+  | { action: 'addTask'; payload: { text: string } }
+  | { action: 'toggleTask'; payload: { id: string } }
+  | { action: 'deleteTask'; payload: { id: string } }
+  | { action: 'setDailyGoal'; payload: { dailyGoalCount: number } }
+  | { action: 'setSoundChime'; payload: { soundChime: 'chime' | 'bell' | 'digital' | 'synth' } };
 
 const STORAGE_KEY = 'pocketPomoState';
 const ALARM_NAME = 'pocketPomoPhaseEnd';
@@ -58,6 +76,7 @@ const DEFAULTS = {
   focusXpPerMinute: 2,
   breakXpPerMinute: 1,
   pomodoroBonusXp: 20,
+  dailyGoalCount: 4,
 };
 
 function clamp(value: number, min: number, max: number): number {
@@ -125,16 +144,61 @@ function applyXp(state: TimerState, gainedXp: number): TimerState {
   };
 }
 
+function checkNewDay(state: TimerState): TimerState {
+  const todayStr = new Date().toLocaleDateString('en-CA');
+  if (state.lastActiveDate === todayStr) {
+    return state;
+  }
+
+  // Calculate day difference
+  const prevDate = new Date(state.lastActiveDate);
+  const todayDate = new Date(todayStr);
+  const diffTime = Math.abs(todayDate.getTime() - prevDate.getTime());
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+  let newStreak = state.streakCount;
+  const goalMet = state.dailyPomodorosCompleted >= state.dailyGoalCount;
+
+  if (diffDays === 1) {
+    // If they didn't meet the goal yesterday, streak is broken
+    if (!goalMet) {
+      newStreak = 0;
+    }
+  } else if (diffDays > 1) {
+    // Missed a day or more: streak is broken
+    newStreak = 0;
+  }
+
+  return {
+    ...state,
+    lastActiveDate: todayStr,
+    dailyPomodorosCompleted: 0,
+    streakCount: newStreak,
+  };
+}
+
 function applyPhaseCompletionRewards(state: TimerState, completedMode: PomodoroMode): TimerState {
   if (completedMode === 'focus') {
     const minutes = state.focusMinutes;
     const xpGain = minutes * DEFAULTS.focusXpPerMinute + DEFAULTS.pomodoroBonusXp;
+    
+    // Process new day checks
+    const checked = checkNewDay(state);
+    const newDailyCount = checked.dailyPomodorosCompleted + 1;
+    let newStreak = checked.streakCount;
+    
+    if (newDailyCount === checked.dailyGoalCount) {
+      newStreak += 1;
+    }
+
     return applyXp(
       {
-        ...state,
-        completedFocusSessions: state.completedFocusSessions + 1,
-        totalPomodorosCompleted: state.totalPomodorosCompleted + 1,
-        totalFocusMinutesCompleted: state.totalFocusMinutesCompleted + minutes,
+        ...checked,
+        completedFocusSessions: checked.completedFocusSessions + 1,
+        totalPomodorosCompleted: checked.totalPomodorosCompleted + 1,
+        totalFocusMinutesCompleted: checked.totalFocusMinutesCompleted + minutes,
+        dailyPomodorosCompleted: newDailyCount,
+        streakCount: newStreak,
       },
       xpGain,
     );
@@ -230,15 +294,14 @@ async function ensureOffscreenDocument(): Promise<void> {
 
   await offscreenCreationPromise;
 }
-
-async function playCompletionChime(): Promise<void> {
+async function playCompletionChime(soundChime: 'chime' | 'bell' | 'digital' | 'synth'): Promise<void> {
   if (!chrome.offscreen) {
     return;
   }
 
   try {
     await ensureOffscreenDocument();
-    await chrome.runtime.sendMessage({ action: 'playCompletionChime' });
+    await chrome.runtime.sendMessage({ action: 'playCompletionChime', chimeType: soundChime });
   } catch (error) {
     console.log('Failed to play completion chime:', error);
   }
@@ -246,6 +309,7 @@ async function playCompletionChime(): Promise<void> {
 
 function createInitialState(): TimerState {
   const levelMetrics = deriveLevelMetrics(0);
+  const todayStr = new Date().toLocaleDateString('en-CA');
   return {
     mode: 'focus',
     isRunning: false,
@@ -267,6 +331,12 @@ function createInitialState(): TimerState {
     level: levelMetrics.level,
     xpInCurrentLevel: levelMetrics.xpInCurrentLevel,
     xpForNextLevel: levelMetrics.xpForNextLevel,
+    tasks: [],
+    soundChime: 'chime',
+    dailyGoalCount: DEFAULTS.dailyGoalCount,
+    dailyPomodorosCompleted: 0,
+    lastActiveDate: todayStr,
+    streakCount: 0,
   };
 }
 
@@ -288,7 +358,7 @@ async function loadState(): Promise<TimerState> {
     : Math.max(1_000, toFiniteNumber(saved.remainingMs, fallback.remainingMs));
   const safeTotalXp = Math.max(0, toFiniteNumber(saved.totalXp, fallback.totalXp));
 
-  return {
+  const loadedState: TimerState = {
     ...fallback,
     ...saved,
     isRunning: safeRunning,
@@ -300,7 +370,6 @@ async function loadState(): Promise<TimerState> {
     focusMinutes: clamp(toFiniteNumber(saved.focusMinutes, fallback.focusMinutes), 1, 120),
     shortBreakMinutes: clamp(toFiniteNumber(saved.shortBreakMinutes, fallback.shortBreakMinutes), 1, 60),
     longBreakMinutes: clamp(toFiniteNumber(saved.longBreakMinutes, fallback.longBreakMinutes), 1, 90),
-    // Keep cadence fixed to the product rule: focus, short, focus, short, focus, long.
     cyclesBeforeLongBreak: DEFAULTS.cyclesBeforeLongBreak,
     totalPomodorosCompleted: Math.max(0, toFiniteNumber(saved.totalPomodorosCompleted, fallback.totalPomodorosCompleted)),
     totalFocusMinutesCompleted: Math.max(0, toFiniteNumber(saved.totalFocusMinutesCompleted, fallback.totalFocusMinutesCompleted)),
@@ -309,7 +378,15 @@ async function loadState(): Promise<TimerState> {
     totalLongBreaksCompleted: Math.max(0, toFiniteNumber(saved.totalLongBreaksCompleted, fallback.totalLongBreaksCompleted)),
     totalXp: safeTotalXp,
     ...deriveLevelMetrics(safeTotalXp),
+    tasks: Array.isArray(saved.tasks) ? saved.tasks : [],
+    soundChime: (saved.soundChime === 'chime' || saved.soundChime === 'bell' || saved.soundChime === 'digital' || saved.soundChime === 'synth') ? saved.soundChime : 'chime',
+    dailyGoalCount: clamp(toFiniteNumber(saved.dailyGoalCount, fallback.dailyGoalCount), 1, 20),
+    dailyPomodorosCompleted: Math.max(0, toFiniteNumber(saved.dailyPomodorosCompleted, fallback.dailyPomodorosCompleted)),
+    lastActiveDate: typeof saved.lastActiveDate === 'string' ? saved.lastActiveDate : new Date().toLocaleDateString('en-CA'),
+    streakCount: Math.max(0, toFiniteNumber(saved.streakCount, fallback.streakCount)),
   };
+
+  return checkNewDay(loadedState);
 }
 
 async function saveState(state: TimerState): Promise<void> {
@@ -440,9 +517,8 @@ async function persistAndPublish(state: TimerState): Promise<TimerState> {
   await saveState(normalizedState);
   await syncAlarm(normalizedState);
   await updateBadge(normalizedState);
-
   if (completionEvents.length > 0) {
-    await playCompletionChime();
+    await playCompletionChime(normalizedState.soundChime || 'chime');
     for (const completedMode of completionEvents) {
       const nextMode = normalizedState.mode;
       await showCompletionNotification(completedMode, nextMode);
@@ -556,6 +632,74 @@ async function setDurations(payload: {
   return persistAndPublish(updated);
 }
 
+async function addTask(text: string): Promise<TimerState> {
+  const state = await getCurrentState();
+  const newTask: Task = {
+    id: Math.random().toString(36).substring(2, 15),
+    text: text.trim().substring(0, 60),
+    completed: false,
+  };
+  const updatedState: TimerState = {
+    ...state,
+    tasks: [...(state.tasks || []), newTask],
+  };
+  return persistAndPublish(updatedState);
+}
+
+async function toggleTask(id: string): Promise<TimerState> {
+  const state = await getCurrentState();
+  let xpGain = 0;
+  const updatedTasks = (state.tasks || []).map((t) => {
+    if (t.id === id) {
+      const completed = !t.completed;
+      if (completed) {
+        xpGain = 15; // +15 XP reward!
+      }
+      return { ...t, completed };
+    }
+    return t;
+  });
+
+  let updatedState: TimerState = {
+    ...state,
+    tasks: updatedTasks,
+  };
+
+  if (xpGain > 0) {
+    updatedState = applyXp(updatedState, xpGain);
+  }
+
+  return persistAndPublish(updatedState);
+}
+
+async function deleteTask(id: string): Promise<TimerState> {
+  const state = await getCurrentState();
+  const updatedTasks = (state.tasks || []).filter((t) => t.id !== id);
+  const updatedState: TimerState = {
+    ...state,
+    tasks: updatedTasks,
+  };
+  return persistAndPublish(updatedState);
+}
+
+async function setDailyGoal(dailyGoalCount: number): Promise<TimerState> {
+  const state = await getCurrentState();
+  const updatedState: TimerState = {
+    ...state,
+    dailyGoalCount: clamp(dailyGoalCount, 1, 20),
+  };
+  return persistAndPublish(updatedState);
+}
+
+async function setSoundChime(soundChime: 'chime' | 'bell' | 'digital' | 'synth'): Promise<TimerState> {
+  const state = await getCurrentState();
+  const updatedState: TimerState = {
+    ...state,
+    soundChime,
+  };
+  return persistAndPublish(updatedState);
+}
+
 async function clearData(): Promise<TimerState> {
   await chrome.storage.local.remove(STORAGE_KEY);
   return persistAndPublish(createInitialState());
@@ -578,7 +722,12 @@ function isIncomingMessage(message: unknown): message is IncomingMessage {
     action === 'reset' ||
     action === 'skip' ||
     action === 'clearData' ||
-    action === 'setDurations'
+    action === 'setDurations' ||
+    action === 'addTask' ||
+    action === 'toggleTask' ||
+    action === 'deleteTask' ||
+    action === 'setDailyGoal' ||
+    action === 'setSoundChime'
   );
 }
 
@@ -624,6 +773,16 @@ chrome.runtime.onMessage.addListener(
           return clearData();
         case 'setDurations':
           return setDurations(message.payload);
+        case 'addTask':
+          return addTask(message.payload.text);
+        case 'toggleTask':
+          return toggleTask(message.payload.id);
+        case 'deleteTask':
+          return deleteTask(message.payload.id);
+        case 'setDailyGoal':
+          return setDailyGoal(message.payload.dailyGoalCount);
+        case 'setSoundChime':
+          return setSoundChime(message.payload.soundChime);
       }
     };
 
