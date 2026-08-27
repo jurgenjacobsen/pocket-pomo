@@ -21,6 +21,6 @@
   },
   "homepage": "https://github.com/jurgenjacobsen/pocket-pomo#readme",
   "devDependencies": {
-    "@types/chrome": "^0.2.2"
+    "@types/chrome": "^0.2.7"
   }
 }
